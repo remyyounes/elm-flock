@@ -5,6 +5,9 @@ import Basics exposing (atan2, atan, sin, cos, pi)
 import Time exposing (Time)
 import Html exposing (Html, text, div)
 import Html.Attributes exposing (style)
+import Color exposing (..)
+import Element exposing (..)
+import Collage exposing (..)
 
 
 type alias Point =
@@ -216,9 +219,32 @@ birdStyle bird =
         ]
 
 
-view : Model -> Html Msg
+
+-- view : Model -> Html Msg
+-- view model =
+--     div [ birdStyle model ] [ Html.text ">" ]
+
+
+triangle size =
+    polygon
+        [ ( -size / 2, size / 2 )
+        , ( size / 2, size / 2 )
+        , ( 0, -size / 2 )
+        ]
+
+
+tile : Model -> Form
+tile model =
+    filled red (triangle 10)
+        |> Collage.move ( model.position.x, model.position.y )
+        |> Collage.move ( -400, -400 )
+        |> rotate model.direction
+        |> rotate (pi / 2)
+
+
+view : Model -> Form
 view model =
-    div [ birdStyle model ] [ text ">" ]
+    tile model
 
 
 getDistance : Point -> Point -> Float

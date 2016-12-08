@@ -7,6 +7,9 @@ import AnimationFrame
 import Html exposing (Html, text, div, button)
 import Html.Events exposing (onClick)
 import Html.Attributes exposing (style)
+import Color exposing (..)
+import Element exposing (..)
+import Collage exposing (..)
 import Bird exposing (..)
 
 
@@ -32,10 +35,7 @@ birdInit direction =
 
 init : ( Model, Cmd Msg )
 init =
-    ( Model
-        []
-    , Cmd.none
-    )
+    ( Model [], Cmd.none )
 
 
 type Msg
@@ -100,29 +100,29 @@ tickBird flock dt model =
         birdModel
 
 
-viewBird : Bird.Model -> Html Msg
-viewBird bird =
-    Html.map
-        BirdMsg
-        (Bird.view bird)
-
-
-canvasStyle =
-    style
-        [ ( "background", "rgba(10, 10, 10, 0.1)" )
-        , ( "position", "absolute" )
-        , ( "width", toString xDim ++ "px" )
-        , ( "height", toString yDim ++ "px" )
+triangle size =
+    polygon
+        [ ( -size / 2, size / 2 )
+        , ( size / 2, size / 2 )
+        , ( 0, -size / 2 )
         ]
+
+
+canvas : List Bird.Model -> Element
+canvas flock =
+    color grey <|
+        collage (round xDim) (round yDim) <|
+            (List.map Bird.view flock)
 
 
 view : Model -> Html Msg
 view model =
-    div [ canvasStyle ]
+    div []
         [ button [ onClick Add ]
-            [ text "Add" ]
+            [ Html.text "Add" ]
         , div []
-            (List.map viewBird model.flock)
+            [ (toHtml <| canvas model.flock)
+            ]
         ]
 
 
