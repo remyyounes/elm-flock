@@ -33,7 +33,7 @@ init x y direction =
     { velocity = 1.0
     , direction = direction
     , position = vector x y
-    , radius = 500.0
+    , radius = 100.0
     }
 
 
@@ -46,7 +46,7 @@ update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         Tick flock dt ->
-            ( updatePosition flock model
+            ( move (updateDirection flock model)
             , Cmd.none
             )
 
@@ -54,91 +54,171 @@ update msg model =
             ( model, Cmd.none )
 
 
-getAngleDelta : Float -> Float -> Float
-getAngleDelta a b =
-    let
-        d =
-            a - b
-    in
-        if d > 2 * pi then
-            d - 2 * pi
-        else
-            d
+normalizeAngle : Float -> Float
+normalizeAngle a =
+    if a < 0 then
+        a + (2 * pi)
+    else
+        a
 
 
-follow : Model -> Model -> Model
-follow target model =
+wrapAngle : Float -> Float
+wrapAngle a =
+    if a > pi then
+        -2 * pi + a
+    else
+        a
+
+
+modAngle : Float -> Float
+modAngle a =
+    if a > 2 * pi then
+        a - 2 * pi
+    else if a < 0 * pi then
+        pi - a
+    else
+        a
+
+
+follow : Point -> Float -> Model -> Model
+follow meanPosition meanDirection model =
     let
+        -- -- COHESION
         dx =
-            model.position.x - target.position.x
+            meanPosition.x - model.position.x
 
         dy =
-            model.position.y - target.position.y
+            meanPosition.y - model.position.y
 
-        directionDelta =
-            getAngleDelta target.direction model.direction
+        cohesionAngle =
+            ((atan2 dy dx) - model.direction)
 
-        newDirection =
-            model.direction + directionDelta / 100
+        alignmentAngle =
+            wrapAngle ((meanDirection) - (model.direction))
 
+        -- debugAngle =
+        --     Debug.log "CohesionAngle" cohesionAngle
+        -- debugAngle2 =
+        --     Debug.log "wrappedCohesionAngle" (toDeg cohesionAngle)
+        -- ADD ANGLE
+        -- + cohesionAngle / 100
         direction =
-            if newDirection > pi / 2 then
-                newDirection - pi
-            else if newDirection < pi / -2 then
-                newDirection + pi
-            else
-                newDirection
+            -- modAngle
+            (model.direction
+                + (alignmentAngle / 50)
+                + (cohesionAngle / 100)
+            )
+    in
+        { model | direction = direction }
 
-        distance =
-            getDistance model.position target.position
 
+move : Model -> Model
+move model =
+    let
         vx =
-            model.velocity * cos (direction)
+            model.velocity * cos (model.direction)
 
         vy =
-            model.velocity * sin (direction)
+            model.velocity * sin (model.direction)
 
         position =
             vector
                 (model.position.x + vx)
                 (model.position.y + vy)
     in
-        if distance < target.radius then
-            Debug.log "+++++"
-                { model
-                    | direction = Debug.log "direction" direction
-                    , position = position
-                }
-        else
-            Debug.log "-----" model
+        { model | position = position }
 
 
+inSight : Model -> Model -> Bool
 inSight model target =
     model.radius > getDistance model.position target.position
 
 
+getFamilly : Model -> List Model -> List Model
 getFamilly model flock =
     List.filter (inSight model) flock
 
 
-updatePosition : List Model -> Model -> Model
-updatePosition flock model =
-    List.foldr follow model (getFamilly model flock)
+mean bird vec =
+    vector
+        (vec.x + (cos bird.direction))
+        (vec.y + (sin bird.direction))
+
+
+getMeanAngle : List Model -> Float
+getMeanAngle flock =
+    let
+        vec =
+            List.foldr mean (vector 0.0 0.0) flock
+    in
+        atan2 vec.y vec.x
+
+
+vectorAdd : Point -> Point -> Point
+vectorAdd a b =
+    vector (a.x + b.x) (a.y + b.y)
+
+
+vectorSum : List Point -> Point
+vectorSum points =
+    List.foldr vectorAdd (vector 0.0 0.0) points
+
+
+getCenterFlock : List Model -> Point
+getCenterFlock flock =
+    let
+        sumPos =
+            vectorSum (List.map .position flock)
+    in
+        vector
+            (sumPos.x / toFloat (List.length flock))
+            (sumPos.y / toFloat (List.length flock))
+
+
+updateDirection : List Model -> Model -> Model
+updateDirection flock model =
+    let
+        familly =
+            getFamilly model flock
+
+        meanAngle =
+            getMeanAngle familly
+
+        -- a =
+        --     Debug.log "dir" (toDeg model.direction)
+        -- b =
+        --     Debug.log "meanDir" (toDeg meanAngle)
+        meanPosition =
+            getCenterFlock familly
+    in
+        if List.length familly > 1 then
+            follow meanPosition meanAngle model
+        else
+            model
+
+
+toDeg : Float -> Float
+toDeg rad =
+    rad * 180 / pi
 
 
 birdStyle : Model -> Html.Attribute msg
 birdStyle bird =
     style
-        [ ( "backgroundColor", "rgb(238, 238, 236)" )
+        [ ( "border", "1px solid rgba(10, 10, 10, 1)" )
         , ( "position", "absolute" )
+          -- , ( "padding", toString bird.radius ++ "px" )
+          -- , ( "margin", toString -bird.radius ++ "px" )
+        , ( "border-radius", toString bird.radius ++ "px" )
         , ( "left", toString bird.position.x ++ "px" )
         , ( "top", toString bird.position.y ++ "px" )
+        , ( "transform", "rotate(" ++ toString (toDeg bird.direction) ++ "deg)" )
         ]
 
 
 view : Model -> Html Msg
 view model =
-    div [ birdStyle model ] [ text (toString model.position.x) ]
+    div [ birdStyle model ] [ text ">" ]
 
 
 getDistance : Point -> Point -> Float

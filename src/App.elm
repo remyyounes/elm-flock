@@ -1,8 +1,12 @@
 module App exposing (..)
 
+import Basics exposing (pi)
+import Random exposing (generate)
 import Time exposing (Time)
 import AnimationFrame
-import Html exposing (Html, text, div)
+import Html exposing (Html, text, div, button)
+import Html.Events exposing (onClick)
+import Html.Attributes exposing (style)
 import Bird exposing (..)
 
 
@@ -11,13 +15,25 @@ type alias Model =
     }
 
 
+xDim : Float
+xDim =
+    800.0
+
+
+yDim : Float
+yDim =
+    800.0
+
+
+birdInit : Float -> Bird.Model
+birdInit direction =
+    Bird.init (xDim / 2) (yDim / 2) direction
+
+
 init : ( Model, Cmd Msg )
 init =
     ( Model
-        [ (Bird.init 50.0 50.0 1.5)
-        , (Bird.init 50.0 100.0 1.0)
-        , (Bird.init 0.0 100.0 0.0)
-        ]
+        []
     , Cmd.none
     )
 
@@ -25,12 +41,20 @@ init =
 type Msg
     = NoOp
     | BirdMsg Bird.Msg
+    | Add
+    | Insert Float
     | Tick Time
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
+        Add ->
+            ( model, Random.generate Insert (Random.float 0.0 (2 * pi)) )
+
+        Insert direction ->
+            ( { model | flock = ((birdInit direction) :: model.flock) }, Cmd.none )
+
         Tick dt ->
             let
                 flock =
@@ -62,8 +86,8 @@ teleport bird =
     { bird
         | position =
             vector
-                (wrap 500.0 bird.position.x)
-                (wrap 500.0 bird.position.y)
+                (wrap xDim bird.position.x)
+                (wrap yDim bird.position.y)
     }
 
 
@@ -83,10 +107,23 @@ viewBird bird =
         (Bird.view bird)
 
 
+canvasStyle =
+    style
+        [ ( "background", "rgba(10, 10, 10, 0.1)" )
+        , ( "position", "absolute" )
+        , ( "width", toString xDim ++ "px" )
+        , ( "height", toString yDim ++ "px" )
+        ]
+
+
 view : Model -> Html Msg
 view model =
-    div []
-        (List.map viewBird model.flock)
+    div [ canvasStyle ]
+        [ button [ onClick Add ]
+            [ text "Add" ]
+        , div []
+            (List.map viewBird model.flock)
+        ]
 
 
 subscriptions : Model -> Sub Msg
