@@ -8,6 +8,7 @@ import Html.Attributes exposing (style)
 import Color exposing (..)
 import Element exposing (..)
 import Collage exposing (..)
+import Math exposing (..)
 
 
 type alias Point =
@@ -55,32 +56,6 @@ update msg model =
 
         _ ->
             ( model, Cmd.none )
-
-
-normalizeAngle : Float -> Float
-normalizeAngle a =
-    if a < 0 then
-        a + (2 * pi)
-    else
-        a
-
-
-wrapAngle : Float -> Float
-wrapAngle a =
-    if a > pi then
-        -2 * pi + a
-    else
-        a
-
-
-modAngle : Float -> Float
-modAngle a =
-    if a > 2 * pi then
-        a - 2 * pi
-    else if a < 0 * pi then
-        pi - a
-    else
-        a
 
 
 follow : Point -> Float -> Model -> Model
