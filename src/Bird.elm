@@ -29,8 +29,8 @@ init : Float -> Float -> Float -> Model
 init x y direction =
     { velocity = 1.0
     , direction = direction
-    , cohesion = 0
-    , alignment = 0
+    , cohesion = direction
+    , alignment = direction
     , position = vector x y
     , radius = 100.0
     }
@@ -40,7 +40,7 @@ update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         Tick flock dt ->
-            ( move (updateDirection flock model)
+            ( updatePosition (updateDirection flock model)
             , Cmd.none
             )
 
@@ -53,50 +53,15 @@ follow meanPosition meanDirection model =
     let
         -- -- COHESION
         cohesion =
-            (getCohesion model.position meanPosition) - model.direction
+            getCohesion model.position meanPosition
 
         alignment =
-            wrapAngle ((meanDirection) - (model.direction))
-
-        direction =
-            -- modAngle
-            (model.direction
-                + (alignment / 50)
-                + (cohesion / 100)
-            )
+            wrapAngle meanDirection
     in
         { model
-            | direction = direction
-            , cohesion = cohesion
+            | cohesion = cohesion
             , alignment = alignment
         }
-
-
-move : Model -> Model
-move model =
-    let
-        vx =
-            model.velocity * cos (model.direction)
-
-        vy =
-            model.velocity * sin (model.direction)
-
-        position =
-            vector
-                (model.position.x + vx)
-                (model.position.y + vy)
-    in
-        { model | position = position }
-
-
-inSight : Model -> Model -> Bool
-inSight model target =
-    model.radius > getDistance model.position target.position
-
-
-getFamilly : Model -> List Model -> List Model
-getFamilly model flock =
-    List.filter (inSight model) flock
 
 
 updateDirection : List Model -> Model -> Model
@@ -117,13 +82,78 @@ updateDirection flock model =
             model
 
 
+updatePosition : Model -> Model
+updatePosition model =
+    let
+        cohesion =
+            wrapAngle (model.cohesion - model.direction)
+
+        -- Debug.log "cohesion" (wrapAngle (model.cohesion - model.direction))
+        alignment =
+            wrapAngle (model.alignment - model.direction)
+
+        -- Debug.log "cohesion" (model.alignment - model.direction)
+        direction =
+            -- modAngle
+            (model.direction
+                + (alignment / 50)
+                + (cohesion / 50)
+            )
+
+        vx =
+            model.velocity * cos (direction)
+
+        vy =
+            model.velocity * sin (direction)
+
+        position =
+            vector
+                (model.position.x + vx)
+                (model.position.y + vy)
+    in
+        { model
+            | position = position
+            , direction = direction
+        }
+
+
+inSight : Model -> Model -> Bool
+inSight model target =
+    model.radius > getDistance model.position target.position
+
+
+getFamilly : Model -> List Model -> List Model
+getFamilly model flock =
+    List.filter (inSight model) flock
+
+
 tile : Model -> Form
 tile model =
-    filled red (triangle 10)
-        |> Collage.move ( model.position.x, model.position.y )
-        |> Collage.move ( -400, -400 )
-        |> rotate model.direction
-        |> rotate (pi / 2)
+    group
+        [ filled
+            red
+            (circle model.radius)
+            |> alpha 0.05
+        , filled
+            red
+            (triangle 10)
+            |> rotate model.direction
+            |> rotate (pi / 2)
+        , filled
+            red
+            (rect 10 1)
+            |> rotate model.alignment
+        , group
+            [ (filled
+                blue
+                (rect 30 1)
+                |> move ( 10, 0 )
+              )
+            ]
+            |> rotate model.cohesion
+        ]
+        |> move ( model.position.x, model.position.y )
+        |> move ( -400, -400 )
 
 
 view : Model -> Form
