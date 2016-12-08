@@ -3,47 +3,37 @@ module Bird exposing (..)
 import Debug
 import Basics exposing (atan2, atan, sin, cos, pi)
 import Time exposing (Time)
-import Html exposing (Html, text, div)
-import Html.Attributes exposing (style)
 import Color exposing (..)
 import Element exposing (..)
 import Collage exposing (..)
 import Math exposing (..)
-
-
-type alias Point =
-    { x : Float
-    , y : Float
-    }
-
-
-vector : Float -> Float -> Point
-vector x y =
-    { x = x
-    , y = y
-    }
+import Art exposing (..)
 
 
 type alias Model =
     { velocity : Float
     , direction : Float
     , position : Point
+    , cohesion : Float
+    , alignment : Float
     , radius : Float
-    }
-
-
-init : Float -> Float -> Float -> Model
-init x y direction =
-    { velocity = 1.0
-    , direction = direction
-    , position = vector x y
-    , radius = 100.0
     }
 
 
 type Msg
     = NoOp
     | Tick (List Model) Time
+
+
+init : Float -> Float -> Float -> Model
+init x y direction =
+    { velocity = 1.0
+    , direction = direction
+    , cohesion = 0
+    , alignment = 0
+    , position = vector x y
+    , radius = 100.0
+    }
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -62,32 +52,24 @@ follow : Point -> Float -> Model -> Model
 follow meanPosition meanDirection model =
     let
         -- -- COHESION
-        dx =
-            meanPosition.x - model.position.x
+        cohesion =
+            (getCohesion model.position meanPosition) - model.direction
 
-        dy =
-            meanPosition.y - model.position.y
-
-        cohesionAngle =
-            ((atan2 dy dx) - model.direction)
-
-        alignmentAngle =
+        alignment =
             wrapAngle ((meanDirection) - (model.direction))
 
-        -- debugAngle =
-        --     Debug.log "CohesionAngle" cohesionAngle
-        -- debugAngle2 =
-        --     Debug.log "wrappedCohesionAngle" (toDeg cohesionAngle)
-        -- ADD ANGLE
-        -- + cohesionAngle / 100
         direction =
             -- modAngle
             (model.direction
-                + (alignmentAngle / 50)
-                + (cohesionAngle / 100)
+                + (alignment / 50)
+                + (cohesion / 100)
             )
     in
-        { model | direction = direction }
+        { model
+            | direction = direction
+            , cohesion = cohesion
+            , alignment = alignment
+        }
 
 
 move : Model -> Model
@@ -117,42 +99,6 @@ getFamilly model flock =
     List.filter (inSight model) flock
 
 
-mean bird vec =
-    vector
-        (vec.x + (cos bird.direction))
-        (vec.y + (sin bird.direction))
-
-
-getMeanAngle : List Model -> Float
-getMeanAngle flock =
-    let
-        vec =
-            List.foldr mean (vector 0.0 0.0) flock
-    in
-        atan2 vec.y vec.x
-
-
-vectorAdd : Point -> Point -> Point
-vectorAdd a b =
-    vector (a.x + b.x) (a.y + b.y)
-
-
-vectorSum : List Point -> Point
-vectorSum points =
-    List.foldr vectorAdd (vector 0.0 0.0) points
-
-
-getCenterFlock : List Model -> Point
-getCenterFlock flock =
-    let
-        sumPos =
-            vectorSum (List.map .position flock)
-    in
-        vector
-            (sumPos.x / toFloat (List.length flock))
-            (sumPos.y / toFloat (List.length flock))
-
-
 updateDirection : List Model -> Model -> Model
 updateDirection flock model =
     let
@@ -160,52 +106,15 @@ updateDirection flock model =
             getFamilly model flock
 
         meanAngle =
-            getMeanAngle familly
+            getMeanAngle (List.map .direction familly)
 
-        -- a =
-        --     Debug.log "dir" (toDeg model.direction)
-        -- b =
-        --     Debug.log "meanDir" (toDeg meanAngle)
         meanPosition =
-            getCenterFlock familly
+            getAverageCenter (List.map .position familly)
     in
         if List.length familly > 1 then
             follow meanPosition meanAngle model
         else
             model
-
-
-toDeg : Float -> Float
-toDeg rad =
-    rad * 180 / pi
-
-
-birdStyle : Model -> Html.Attribute msg
-birdStyle bird =
-    style
-        [ ( "border", "1px solid rgba(10, 10, 10, 1)" )
-        , ( "position", "absolute" )
-          -- , ( "padding", toString bird.radius ++ "px" )
-          -- , ( "margin", toString -bird.radius ++ "px" )
-        , ( "border-radius", toString bird.radius ++ "px" )
-        , ( "left", toString bird.position.x ++ "px" )
-        , ( "top", toString bird.position.y ++ "px" )
-        , ( "transform", "rotate(" ++ toString (toDeg bird.direction) ++ "deg)" )
-        ]
-
-
-
--- view : Model -> Html Msg
--- view model =
---     div [ birdStyle model ] [ Html.text ">" ]
-
-
-triangle size =
-    polygon
-        [ ( -size / 2, size / 2 )
-        , ( size / 2, size / 2 )
-        , ( 0, -size / 2 )
-        ]
 
 
 tile : Model -> Form
@@ -220,11 +129,6 @@ tile model =
 view : Model -> Form
 view model =
     tile model
-
-
-getDistance : Point -> Point -> Float
-getDistance start end =
-    sqrt ((end.x - start.x) ^ 2 + (end.y - start.y) ^ 2)
 
 
 subscriptions : Model -> Sub Msg

@@ -11,6 +11,7 @@ import Color exposing (..)
 import Element exposing (..)
 import Collage exposing (..)
 import Bird exposing (..)
+import Math exposing (..)
 
 
 type alias Model =
